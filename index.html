@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Location Permission Check</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #edf3f4;
+        color: #172126;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      main {
+        width: min(100%, 560px);
+        padding: 36px;
+        background: #ffffff;
+        border: 1px solid #cfdcdd;
+        border-radius: 8px;
+        box-shadow: 0 18px 50px rgba(19, 44, 49, 0.12);
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        color: #0b6f6a;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 { margin: 0; font-size: 2rem; line-height: 1.15; }
+      .intro { color: #506064; line-height: 1.55; }
+
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 20px; }
+      button {
+        min-height: 44px;
+        padding: 0 16px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 650;
+      }
+      #request { background: #0b6f6a; color: #ffffff; }
+      #request:hover { background: #075b57; }
+      #clear { background: #eef4f4; border-color: #bfd0d1; color: #21383a; }
+      button:focus-visible { outline: 3px solid #e5a64a; outline-offset: 2px; }
+
+      #status {
+        margin: 0;
+        padding: 13px 14px;
+        border-left: 4px solid #6d7a7d;
+        background: #f3f6f6;
+        color: #344347;
+        line-height: 1.45;
+      }
+      #status.success { border-color: #0b6f6a; background: #e8f5f3; }
+      #status.error { border-color: #bc3d3d; background: #fbefef; }
+
+      dl { display: grid; grid-template-columns: 1fr auto; gap: 12px 24px; margin: 22px 0 0; }
+      dt { color: #627174; }
+      dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+      .hidden { display: none; }
+      a { color: #075b57; font-weight: 650; }
+      .note { margin: 24px 0 0; color: #68777a; font-size: 0.9rem; line-height: 1.45; }
+
+      @media (max-width: 500px) {
+        main { padding: 26px 20px; }
+        h1 { font-size: 1.7rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Local browser test</p>
+      <h1>Location Permission Check</h1>
+      <p class="intro">This page uses your browser's built-in geolocation permission. The result stays in this page until you clear or close it. The optional map link opens OpenStreetMap with these coordinates.</p>
+
+      <div class="actions">
+        <button id="request" type="button">Request my location</button>
+        <button id="clear" type="button">Clear result</button>
+      </div>
+
+      <p id="status" aria-live="polite">Location has not been requested.</p>
+
+      <section id="result" class="hidden" aria-label="Location result">
+        <dl>
+          <dt>Latitude</dt><dd id="latitude"></dd>
+          <dt>Longitude</dt><dd id="longitude"></dd>
+          <dt>Accuracy</dt><dd id="accuracy"></dd>
+        </dl>
+        <p><a id="map" href="#" target="_blank" rel="noopener">View this point on a map</a></p>
+      </section>
+
+      <p class="note">For reliable behavior, use a current browser over <code>localhost</code>. Browser permission settings control access.</p>
+    </main>
+
+    <script>
+      const requestButton = document.querySelector('#request');
+      const clearButton = document.querySelector('#clear');
+      const status = document.querySelector('#status');
+      const result = document.querySelector('#result');
+      const latitude = document.querySelector('#latitude');
+      const longitude = document.querySelector('#longitude');
+      const accuracy = document.querySelector('#accuracy');
+      const map = document.querySelector('#map');
+
+      function setStatus(message, type = '') {
+        status.textContent = message;
+        status.className = type;
+      }
+
+      function clearResult() {
+        result.classList.add('hidden');
+        latitude.textContent = '';
+        longitude.textContent = '';
+        accuracy.textContent = '';
+        map.href = '#';
+        setStatus('Location result cleared.');
+      }
+
+      function showError(error) {
+        const messages = {
+          1: 'Permission was denied. Allow location access in your browser settings to try again.',
+          2: 'Your device could not determine a location. Check that location services are enabled.',
+          3: 'The location request timed out. Try again where you have a better connection.'
+        };
+        setStatus(messages[error.code] || 'An unexpected location error occurred.', 'error');
+      }
+
+      requestButton.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+          setStatus('This browser does not support geolocation.', 'error');
+          return;
+        }
+
+        requestButton.disabled = true;
+        setStatus('Waiting for your browser permission and location...');
+        navigator.geolocation.getCurrentPosition(
+          ({ coords }) => {
+            latitude.textContent = coords.latitude.toFixed(6);
+            longitude.textContent = coords.longitude.toFixed(6);
+            accuracy.textContent = `${Math.round(coords.accuracy)} m`;
+            map.href = `https://www.openstreetmap.org/?mlat=${coords.latitude}&mlon=${coords.longitude}#map=16/${coords.latitude}/${coords.longitude}`;
+            result.classList.remove('hidden');
+            setStatus('Location received locally in this browser.', 'success');
+            requestButton.disabled = false;
+          },
+          (error) => {
+            showError(error);
+            requestButton.disabled = false;
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+      });
+
+      clearButton.addEventListener('click', clearResult);
+    </script>
+  </body>
+</html>
